@@ -1,0 +1,353 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --lime: #E3F25B;
+  --olive: #1B1D0F;
+  --cream: #F2EFE6;
+  --white: #FFFFFF;
+  --ink: #111111;
+  --muted: #8A8A80;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+/* ==========================================================================
+   Self-Hosted Fonts & Size-Adjusted Fallbacks (font-display: block)
+   ========================================================================== */
+@font-face {
+  font-family: 'Urbanist-Fallback';
+  src: local('Arial');
+  ascent-override: 95%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+  size-adjust: 100%;
+}
+
+@font-face {
+  font-family: 'Inter-Fallback';
+  src: local('Arial');
+  ascent-override: 90%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+  size-adjust: 100%;
+}
+
+@font-face {
+  font-family: 'Urbanist';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url('/fonts/urbanist-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Urbanist';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: block;
+  src: url('/fonts/urbanist.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/inter-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('/fonts/inter-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: block;
+  src: url('/fonts/inter.woff2') format('woff2');
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Lenis smooth scrolling rules */
+html.lenis, html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
+
+/* Base resets & typography */
+html {
+  scroll-padding-top: 76px;
+  overflow-x: clip;
+}
+
+body {
+  font-family: 'Urbanist', 'Urbanist-Fallback', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink);
+  background-color: var(--white);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+@media (min-width: 768px) {
+  body {
+    font-size: 16px;
+  }
+}
+
+img, canvas, video {
+  max-width: 100%;
+}
+
+h1, h2, h3, h4, h5, h6, p, span, a, button, input, textarea, select {
+  font-family: 'Urbanist', 'Urbanist-Fallback', sans-serif;
+  overflow-wrap: break-word;
+}
+
+/* ==========================================================================
+   Splash Screen: Clean Start State (Hidden by default in CSS)
+   ========================================================================== */
+.splash-initial-hidden,
+.v-gf-wall,
+.v-uf-wall,
+.v-win-glass,
+.v-tree,
+.win-glow,
+.splash-part {
+  visibility: hidden;
+  opacity: 0;
+}
+
+/* ==========================================================================
+   Video Sections: Solid Tag Chips
+   ========================================================================== */
+.video-tag-chip {
+  background-color: #1B1D0F !important;
+  border: 1px solid rgba(242, 239, 230, 0.5) !important;
+  color: #F2EFE6 !important;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .video-tag-chip {
+    font-size: 13px;
+  }
+}
+
+/* ==========================================================================
+   Mobile Video Section Text Layout & Anchor Rules (screens < 768px)
+   ========================================================================== */
+@media (max-width: 767px) {
+  .video-text-container {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0 20px;
+    pointer-events: none;
+    z-index: 20;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  [data-text-anchor="center"] .video-text-container,
+  .video-text-container[data-text-anchor="center"] {
+    justify-content: center;
+  }
+
+  [data-text-anchor="bottom"] .video-text-container,
+  .video-text-container[data-text-anchor="bottom"] {
+    justify-content: flex-end;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12dvh);
+  }
+
+  .video-text-block {
+    width: 100%;
+    max-width: 86vw;
+    position: relative;
+    text-align: center;
+    pointer-events: auto;
+    margin: 0 auto;
+    transform: none !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+  }
+
+  /* Anchored to bottom in the bottom variant so shorter and taller stages share the exact bottom edge */
+  [data-text-anchor="bottom"] .video-stage-item {
+    position: absolute !important;
+    inset-inline: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .video-text-container {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    padding: 0;
+    pointer-events: none;
+  }
+}
+
+/* Mobile heading typography constraints */
+@media (max-width: 767px) {
+  h1 {
+    font-size: clamp(34px, 9vw, 44px) !important;
+    line-height: 1.1 !important;
+  }
+  h2 {
+    font-size: clamp(28px, 7.5vw, 36px) !important;
+    line-height: 1.1 !important;
+  }
+  h3 {
+    font-size: clamp(20px, 5.5vw, 22px) !important;
+    line-height: 1.15 !important;
+  }
+}
+
+/* Minimum 16px font on inputs/selects/textareas to prevent iOS auto-zoom */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* Minimum 44x44px tap targets for buttons and interactive links */
+@media (max-width: 767px) {
+  button, a.btn, input[type="submit"], input[type="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Touch device adaptations & instant tap response (no 300ms tap delay) */
+button, a, input, select, textarea, [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: none) {
+  .group:hover .group-hover\:rotate-45 {
+    transform: none;
+  }
+  .group:active .group-hover\:rotate-45 {
+    transform: rotate(45deg);
+  }
+}
+
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #1B1D0F;
+}
+::-webkit-scrollbar-thumb {
+  background: #E3F25B;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d4e44e;
+}
+
+/* Infinite Marquee animations */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes marquee-reverse {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 35s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+.animate-marquee-reverse {
+  display: flex;
+  width: max-content;
+  animation: marquee-reverse 35s linear infinite;
+}
+
+.animate-marquee-reverse:hover {
+  animation-play-state: paused;
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-marquee, .animate-marquee-reverse {
+    animation: none !important;
+  }
+}

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth" style="background-color: #1B1D0F;">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    
+    <!-- Primary Meta Tags -->
+    <title>Monolith Constructions | Premium Homes and Commercial Construction</title>
+    <meta name="title" content="Monolith Constructions | Premium Homes and Commercial Construction" />
+    <meta name="description" content="Monolith Constructions crafts premium luxury homes, custom villas, and landmark commercial spaces with 20 years of architectural excellence and unwavering trust." />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://monolithconstructions.in/" />
+    <meta property="og:title" content="Monolith Constructions | Premium Homes and Commercial Construction" />
+    <meta property="og:description" content="Premium homes and commercial spaces, crafted with 20 years of trust. Discover our turnkey construction, luxury villas, and landmark developments." />
+    <meta property="og:image" content="/images/about-building.webp" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="Monolith Constructions | Premium Homes and Commercial Construction" />
+    <meta property="twitter:description" content="Premium homes and commercial spaces, crafted with 20 years of trust." />
+    <meta property="twitter:image" content="/images/about-building.webp" />
+
+    <!-- Preload Critical Hero Poster & Fonts -->
+    <link rel="preload" href="/frames/section1/poster.webp" as="image" type="image/webp" fetchpriority="high" />
+    <link rel="preload" href="/fonts/urbanist-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/inter-500.woff2" as="font" type="font/woff2" crossorigin />
+
+    <style>
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-padding-top: 76px;
+      }
+      html, body {
+        background-color: #1B1D0F;
+        overflow-x: clip;
+      }
+    </style>
+  </head>
+  <body class="bg-white text-ink font-urbanist antialiased selection:bg-lime selection:text-olive">
+    <!-- Initial Splash First Paint Layer: ONLY full-screen #1B1D0F with 3px lime bar at 0% width -->
+    <div id="initial-splash" style="position: fixed; inset: 0; z-index: 9999; background-color: #1B1D0F; pointer-events: none;">
+      <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background-color: rgba(255, 255, 255, 0.1);">
+        <div style="height: 100%; width: 0%; background-color: #E3F25B;"></div>
+      </div>
+    </div>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

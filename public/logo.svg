@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Lime Hexagon -->
+  <polygon points="50,4 92,27 92,73 50,96 8,73 8,27" fill="#E3F25B" />
+  
+  <!-- Architectural roof & building structure lines in Olive -->
+  <g stroke="#1B1D0F" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M50 22 L68 33 V74 H32 V33 Z" fill="none" />
+    <path d="M50 22 V74" />
+    <path d="M38 48 H62" />
+    <path d="M38 60 H62" />
+    <path d="M24 74 H76" stroke-width="6" />
+  </g>
+</svg>
+
