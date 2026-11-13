@@ -110,7 +110,8 @@ export function App() {
     setIsSplashComplete(true);
     lenisRef.current?.start();
     frameLoader.notifySplashComplete();
-    frameLoader.preloadNextCoarse(2);
+    frameLoader.loadSection(2);
+    frameLoader.preloadNextCoarse(3);
     setTimeout(() => {
       ScrollTrigger.refresh();
     }, 100);

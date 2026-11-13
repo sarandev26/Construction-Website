@@ -52,11 +52,16 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
     let currentDisplayed = 0;
     let heroGatingReady = false;
 
-    // Start gating loader: hero poster, hero coarse pass (Pass 1), and section 2 poster
+    // Start gating loader: hero poster, hero coarse pass (Pass 1), and all room section posters
     frameLoader.registerSection(1, siteContent.videoSection1.folderPath, siteContent.videoSection1.frameCount);
-    if (siteContent.pinnedSections.length > 0) {
-      frameLoader.registerSection(2, siteContent.pinnedSections[0].folder, siteContent.pinnedSections[0].frameCount);
-    }
+    siteContent.pinnedSections.forEach((sec) => {
+      frameLoader.registerSection(sec.sectionNumber, sec.folder, sec.frameCount);
+    });
+
+    // Start background loading sections 1 and 2 during splash screen animation
+    frameLoader.loadSection(1);
+    frameLoader.loadSection(2);
+
     frameLoader.waitForHeroGating().then(() => {
       heroGatingReady = true;
     });

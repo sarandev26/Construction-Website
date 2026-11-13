@@ -76,6 +76,7 @@ export const ScrollVideoSection: React.FC<ScrollVideoSectionProps> = ({
   const nextPosterPreloadedRef = useRef<boolean>(false);
   const nextCoarsePreloadedRef = useRef<boolean>(false);
   const lastStageIndexRef = useRef<number>(0);
+  const posterImgRef = useRef<HTMLImageElement | null>(null);
 
   // Compute and cache draw rectangle on resize
   const updateCachedDimensions = useCallback(() => {
@@ -126,12 +127,12 @@ export const ScrollVideoSection: React.FC<ScrollVideoSectionProps> = ({
       isMob,
     };
 
-    if (sizeChanged) {
-      const frameResult = frameLoader.getNearestFrameWithIndex(sectionNumber, currentFrameRef.current);
-      if (frameResult) {
-        renderedActualFrameRef.current = frameResult.index;
-        ctx.drawImage(frameResult.frame, Math.round(offsetX * dpr), Math.round(offsetY * dpr), Math.round(drawW * dpr), Math.round(drawH * dpr));
-      }
+    const frameResult = frameLoader.getNearestFrameWithIndex(sectionNumber, currentFrameRef.current);
+    if (frameResult) {
+      renderedActualFrameRef.current = frameResult.index;
+      ctx.drawImage(frameResult.frame, Math.round(offsetX * dpr), Math.round(offsetY * dpr), Math.round(drawW * dpr), Math.round(drawH * dpr));
+    } else if (posterImgRef.current && posterImgRef.current.complete) {
+      ctx.drawImage(posterImgRef.current, Math.round(offsetX * dpr), Math.round(offsetY * dpr), Math.round(drawW * dpr), Math.round(drawH * dpr));
     }
   }, [focusPoint, sectionNumber]);
 
@@ -157,9 +158,9 @@ export const ScrollVideoSection: React.FC<ScrollVideoSectionProps> = ({
 
         // Draw off-thread decoded ImageBitmap directly to canvas in one blit covering full screen
         ctx.drawImage(bitmap, metrics.dx, metrics.dy, metrics.dw, metrics.dh);
-      } else {
-        // Fallback chain: do not clear the canvas to blank!
-        // Keep the last rendered frame, or if none, the poster behind the canvas is already visible.
+      } else if (renderedActualFrameRef.current === 0 && posterImgRef.current && posterImgRef.current.complete) {
+        // Fallback chain: if frames are still in-flight, draw preloaded poster directly
+        ctx.drawImage(posterImgRef.current, metrics.dx, metrics.dy, metrics.dw, metrics.dh);
       }
     },
     [sectionNumber, updateCachedDimensions]
@@ -183,6 +184,20 @@ export const ScrollVideoSection: React.FC<ScrollVideoSectionProps> = ({
   useEffect(() => {
     let mounted = true;
 
+    // Load poster image immediately for instant synchronous drawing
+    const poster = new Image();
+    poster.src = posterUrl;
+    poster.onload = () => {
+      if (!mounted) return;
+      posterImgRef.current = poster;
+      if (renderedActualFrameRef.current === 0) {
+        drawFrameNow(1);
+      }
+    };
+    if (poster.complete && poster.naturalWidth > 0) {
+      posterImgRef.current = poster;
+    }
+
     frameLoader.registerSection(sectionNumber, folderPath, totalFrames);
 
     const unsubscribe = frameLoader.subscribe(sectionNumber, () => {
@@ -190,7 +205,7 @@ export const ScrollVideoSection: React.FC<ScrollVideoSectionProps> = ({
       drawFrameNow(currentFrameRef.current);
     });
 
-    // If frames are already ready, draw immediately
+    // If frames or poster are ready, draw immediately
     drawFrameNow(currentFrameRef.current);
 
     return () => {
@@ -201,7 +216,7 @@ export const ScrollVideoSection: React.FC<ScrollVideoSectionProps> = ({
         rafIdRef.current = null;
       }
     };
-  }, [sectionNumber, folderPath, totalFrames, drawFrameNow]);
+  }, [sectionNumber, folderPath, totalFrames, posterUrl, drawFrameNow]);
 
   // Window resize handler: recompute dimensions & redraw
   useEffect(() => {
@@ -255,7 +270,7 @@ export const ScrollVideoSection: React.FC<ScrollVideoSectionProps> = ({
         pin: sticky,
         pinSpacing: true,
         scrub: prefersReducedMotion ? false : 0.05,
-        anticipatePin: 1,
+        anticipatePin: 0,
         onEnter: () => {
           frameLoader.loadSection(sectionNumber);
         },
@@ -278,10 +293,11 @@ export const ScrollVideoSection: React.FC<ScrollVideoSectionProps> = ({
             desktopProgressTextRef.current.textContent = `${Math.round(currentProgress * 100)}%`;
           }
 
-          // Preload next section poster at ~40% scroll
+          // Preload next section poster and kick off loading at ~40% scroll
           if (currentProgress >= 0.4 && !nextPosterPreloadedRef.current) {
             nextPosterPreloadedRef.current = true;
             frameLoader.preloadPoster(sectionNumber + 1);
+            frameLoader.loadSection(sectionNumber + 1);
           }
 
           // Preload next section coarse pass at 50% scroll
@@ -358,12 +374,12 @@ export const ScrollVideoSection: React.FC<ScrollVideoSectionProps> = ({
           src={posterUrl}
           alt=""
           loading="eager"
-          decoding="async"
+          decoding="sync"
           className="absolute inset-0 w-full h-full pointer-events-none block"
           style={{
             objectFit: 'cover',
             objectPosition: `${(focusPoint?.x ?? 0.5) * 100}% ${(focusPoint?.y ?? 0.5) * 100}%`,
-            backgroundColor: '#1B1D0F',
+            backgroundColor: 'transparent',
           }}
         />
 
@@ -397,7 +413,7 @@ export const ScrollVideoSection: React.FC<ScrollVideoSectionProps> = ({
               style={{ width: '0%' }}
             />
           </div>
-          {sectionNumber === 1 && (
+          {sectionNumber === 1 && stageProgress < 0.15 && (
             <div className="text-[11px] font-mono text-lime/90 text-center pt-1.5 animate-pulse">
               Swipe up to explore ↑
             </div>

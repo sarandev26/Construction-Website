@@ -29,9 +29,11 @@ interface SectionCache {
   lastTargetIndex: number;
   lastAccessTime: number;
   isStarted: boolean;
+  isFineQueued: boolean;
   isInMemory: boolean;
   posterLoaded: boolean;
   posterUrl: string;
+  posterBitmap?: ImageBitmap | null;
 }
 
 class ProgressiveFrameLoader {
@@ -40,7 +42,7 @@ class ProgressiveFrameLoader {
   private totalInFlight = 0;
   private isFastScrolling = false;
   private scrollIdleTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly memoryBudgetLimit = 2; // at most 2 sections in memory simultaneously
+  private readonly memoryBudgetLimit = 3; // 3 sections in memory (prev, current, next)
   private isMobileMode: boolean;
   private subscribers = new Map<number, Set<(frameIndex: number) => void>>();
 
@@ -85,8 +87,8 @@ class ProgressiveFrameLoader {
     const set = this.subscribers.get(sectionNumber)!;
     set.add(callback);
 
-    // If frames are already loaded, notify the subscriber on next microtask
-    if (this.getLoadedCount(sectionNumber) > 0) {
+    // If frames or poster are already loaded, notify the subscriber on next microtask
+    if (this.getLoadedCount(sectionNumber) > 0 || this.cache.get(sectionNumber)?.posterBitmap) {
       queueMicrotask(() => {
         if (set.has(callback)) {
           callback(1);
@@ -114,7 +116,7 @@ class ProgressiveFrameLoader {
 
   public notifySplashComplete() {
     this.cache.forEach((sec, num) => {
-      if (sec.loadedSet.size > 0) {
+      if (sec.loadedSet.size > 0 || sec.posterBitmap) {
         this.notifySubscribers(num, 1);
       }
     });
@@ -147,6 +149,7 @@ class ProgressiveFrameLoader {
         lastTargetIndex: 1,
         lastAccessTime: Date.now(),
         isStarted: false,
+        isFineQueued: false,
         isInMemory: true,
         posterLoaded: false,
         posterUrl: this.getPosterUrl(folderPath),
@@ -164,18 +167,39 @@ class ProgressiveFrameLoader {
     }
   }
 
-  // Preload a section's poster image
-  public preloadPoster(sectionNumber: number): Promise<boolean> {
+  // Preload a section's poster image and decode into ImageBitmap
+  public async preloadPoster(sectionNumber: number): Promise<boolean> {
     const sec = this.cache.get(sectionNumber);
-    if (!sec) return Promise.resolve(false);
-    if (sec.posterLoaded) return Promise.resolve(true);
+    if (!sec) return false;
+    if (sec.posterLoaded && sec.posterBitmap) return true;
+
+    try {
+      const bitmap = await this.fetchBitmap(sec.posterUrl);
+      if (bitmap) {
+        sec.posterBitmap = bitmap;
+        sec.posterLoaded = true;
+        this.notifySubscribers(sectionNumber, 1);
+        return true;
+      }
+    } catch {
+      // Fallback below
+    }
 
     return new Promise((resolve) => {
       const img = new Image();
-      img.decoding = 'async';
       img.onload = () => {
         sec.posterLoaded = true;
-        resolve(true);
+        if (typeof createImageBitmap === 'function') {
+          createImageBitmap(img)
+            .then((bm) => {
+              sec.posterBitmap = bm;
+              this.notifySubscribers(sectionNumber, 1);
+              resolve(true);
+            })
+            .catch(() => resolve(true));
+        } else {
+          resolve(true);
+        }
       };
       img.onerror = () => {
         resolve(false);
@@ -221,24 +245,34 @@ class ProgressiveFrameLoader {
     sec.lastAccessTime = Date.now();
     this.enforceMemoryBudget(sectionNumber);
     sec.isInMemory = true;
-
-    if (sec.isStarted && sec.loadedSet.size > 0) return;
     sec.isStarted = true;
+
+    // If fine pass has already been queued, pump queue and return
+    if (sec.isFineQueued) {
+      this.pumpQueue();
+      return;
+    }
+    sec.isFineQueued = true;
+
+    const pendingSet = new Set(sec.queue);
 
     // Pass 1: Coarse set (every 6th frame: 1, 7, 13, 19, ... and last frame)
     const coarse: number[] = [];
     for (let i = 1; i <= sec.frameCount; i += 6) {
-      coarse.push(i);
+      if (!sec.loadedSet.has(i) && !sec.inFlight.has(i) && !pendingSet.has(i)) {
+        coarse.push(i);
+        pendingSet.add(i);
+      }
     }
-    if (!coarse.includes(sec.frameCount)) {
+    if (!sec.loadedSet.has(sec.frameCount) && !sec.inFlight.has(sec.frameCount) && !pendingSet.has(sec.frameCount)) {
       coarse.push(sec.frameCount);
+      pendingSet.add(sec.frameCount);
     }
 
-    // Pass 2: Fine set (all other frames)
-    const coarseSet = new Set(coarse);
+    // Pass 2: Fine set (all remaining missing frames)
     const fine: number[] = [];
     for (let i = 1; i <= sec.frameCount; i++) {
-      if (!coarseSet.has(i)) {
+      if (!sec.loadedSet.has(i) && !sec.inFlight.has(i) && !pendingSet.has(i)) {
         fine.push(i);
       }
     }
@@ -247,7 +281,7 @@ class ProgressiveFrameLoader {
     const target = sec.lastTargetIndex || 1;
     fine.sort((a, b) => Math.abs(a - target) - Math.abs(b - target));
 
-    sec.queue = [...coarse, ...fine];
+    sec.queue.push(...coarse, ...fine);
     this.pumpQueue();
   }
 
@@ -255,7 +289,7 @@ class ProgressiveFrameLoader {
   public preloadNextCoarse(nextSectionNumber: number) {
     const sec = this.cache.get(nextSectionNumber);
     if (!sec) return;
-    if (sec.isStarted && sec.loadedSet.size > 0) return;
+    if (sec.isStarted) return;
 
     sec.lastAccessTime = Date.now();
     this.enforceMemoryBudget(nextSectionNumber);
@@ -265,12 +299,14 @@ class ProgressiveFrameLoader {
     // Load coarse pass only
     const coarse: number[] = [];
     for (let i = 1; i <= sec.frameCount; i += 6) {
-      coarse.push(i);
+      if (!sec.loadedSet.has(i) && !sec.inFlight.has(i) && !sec.queue.includes(i)) {
+        coarse.push(i);
+      }
     }
-    if (!coarse.includes(sec.frameCount)) {
+    if (!coarse.includes(sec.frameCount) && !sec.loadedSet.has(sec.frameCount) && !sec.inFlight.has(sec.frameCount)) {
       coarse.push(sec.frameCount);
     }
-    sec.queue = coarse;
+    sec.queue.push(...coarse);
     this.pumpQueue();
   }
 
@@ -286,11 +322,10 @@ class ProgressiveFrameLoader {
     const sec = this.cache.get(sectionNumber);
     if (!sec) return;
 
-    if (sec.lastTargetIndex === targetIndex && sec.isStarted && sec.loadedSet.size > 0) return;
     sec.lastAccessTime = Date.now();
     sec.lastTargetIndex = targetIndex;
 
-    if (!sec.isStarted || !sec.isInMemory || sec.loadedSet.size === 0) {
+    if (!sec.isFineQueued) {
       this.loadSection(sectionNumber);
       return;
     }
@@ -332,7 +367,22 @@ class ProgressiveFrameLoader {
   private pumpQueue() {
     if (this.totalInFlight >= this.maxConcurrent) return;
 
-    // Find section with highest priority (most recently accessed)
+    // 1. Critical frame priority: dispatch Frame 1 of ANY pending section immediately
+    for (const sec of this.cache.values()) {
+      if (sec.isInMemory && sec.queue.includes(1) && !sec.loadedSet.has(1) && !sec.inFlight.has(1)) {
+        if (this.totalInFlight < this.maxConcurrent) {
+          const idx = sec.queue.indexOf(1);
+          if (idx !== -1) {
+            const nextIndex = sec.queue.splice(idx, 1)[0];
+            this.dispatchFetch(sec, nextIndex);
+          }
+        }
+      }
+    }
+
+    if (this.totalInFlight >= this.maxConcurrent) return;
+
+    // 2. Find section with highest priority (most recently accessed)
     const activeSections = Array.from(this.cache.values())
       .filter((s) => s.isInMemory && s.queue.length > 0)
       .sort((a, b) => b.lastAccessTime - a.lastAccessTime);
@@ -429,10 +479,9 @@ class ProgressiveFrameLoader {
     }
   }
 
-  // Splash Screen Gating: waits for fonts, hero coarse pass, hero poster, and section 2 poster
+  // Splash Screen Gating: preloads all 6 section posters and hero coarse pass
   public waitForHeroGating(): Promise<void> {
-    const p1 = this.preloadPoster(1);
-    const p2 = this.preloadPoster(2);
+    const posterPromises = [1, 2, 3, 4, 5, 6].map((s) => this.preloadPoster(s));
 
     // Ensure hero section is loading
     this.loadSection(1);
@@ -448,16 +497,23 @@ class ProgressiveFrameLoader {
       setTimeout(resolve, 3500);
     });
 
-    return Promise.all([p1, p2, coarsePromise]).then(() => {});
+    return Promise.all([...posterPromises, coarsePromise]).then(() => {});
   }
 
-  // Nearest frame lookup
+  // Nearest frame lookup: guarantees returning poster bitmap if frames are still arriving
   public getNearestFrameWithIndex(
     sectionNumber: number,
     targetIndex: number
   ): NearestFrameResult | null {
     const sec = this.cache.get(sectionNumber);
-    if (!sec || sec.loadedSet.size === 0) return null;
+    if (!sec) return null;
+
+    if (sec.loadedSet.size === 0) {
+      if (sec.posterBitmap) {
+        return { frame: sec.posterBitmap, index: 1 };
+      }
+      return null;
+    }
 
     if (sec.frames[targetIndex]) {
       return { frame: sec.frames[targetIndex]!, index: targetIndex };
@@ -475,6 +531,10 @@ class ProgressiveFrameLoader {
         return { frame: sec.frames[upper]!, index: upper };
       }
       offset++;
+    }
+
+    if (sec.posterBitmap) {
+      return { frame: sec.posterBitmap, index: 1 };
     }
 
     return null;
